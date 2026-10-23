@@ -1,0 +1,64 @@
+<!doctype html><html lang=en><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>AdaptEd - learn, explain, remember</title>
+<style>
+:root{--ink:#1b1f3b;--mut:#667085;--bg:#f3f4fb;--acc:#5b5bd6;--acc2:#8b5cf6;--ln:#e4e7ee}
+*{box-sizing:border-box}body{margin:0;font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:var(--bg)}
+header{background:linear-gradient(120deg,var(--acc),var(--acc2));color:#fff;padding:14px 22px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+h1{margin:0;font-size:22px}h1 small{font-weight:400;opacity:.85;font-size:13px;margin-left:8px}h2{margin:0 0 8px;font-size:20px}
+nav a{color:#fff;opacity:.8;margin-left:16px;cursor:pointer;padding:4px 2px;border-bottom:2px solid transparent}nav a.on,nav a:hover{opacity:1;border-color:#fff}
+main{max-width:860px;margin:20px auto;padding:0 16px}.card{background:#fff;border-radius:14px;padding:20px;box-shadow:0 1px 4px #1b1f3b1a;margin-bottom:16px}
+input,textarea{width:100%;padding:11px 12px;border:1px solid var(--ln);border-radius:10px;font:inherit;margin:4px 0}.f{display:flex;gap:8px}.f input{flex:1}
+button{background:var(--acc);color:#fff;border:0;padding:9px 16px;border-radius:10px;cursor:pointer;font:600 14px system-ui}button:hover{filter:brightness(1.1)}button.s{background:#eef0ff;color:var(--acc)}
+:focus-visible{outline:3px solid #f5b301;outline-offset:1px}.mut{color:var(--mut)}.err{color:#b42318}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}.sub{background:#f7f7ff;border:1px solid var(--ln);border-radius:12px;padding:14px;text-align:left;color:var(--ink);font:inherit}.sub:hover{border-color:var(--acc);background:#eef0ff}
+.step{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;border:1px solid transparent}.step.cur{background:#f1f0ff;border-color:var(--acc)}.step .t{flex:1}.step.lock{opacity:.55}
+.n{width:28px;height:28px;border-radius:50%;background:var(--ln);display:grid;place-items:center;font-size:13px;font-weight:700}.mastered .n{background:#16a34a;color:#fff}
+.chip{font-size:12px;padding:2px 10px;border-radius:99px;background:var(--ln)}.chip.mastered{background:#dcfce7;color:#166534}.chip.in-progress{background:#fef3c7;color:#92400e}.chip.rv{background:#fee2e2;color:#991b1b}
+.pb,.bar{height:10px;background:var(--ln);border-radius:9px;overflow:hidden}.pb i,.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),var(--acc2))}
+.lesson{font-size:18px;line-height:1.8;background:#f7f7ff;padding:16px;border-radius:12px;border-left:5px solid var(--acc)}
+.res{border-radius:12px;padding:16px;margin-top:14px}.res.ok{background:#ecfdf3}.res.no{background:#fff4ed}.big{font-size:34px;font-weight:800}
+.res h3{font-size:15px;margin:16px 0 4px}.xl{padding-left:0;list-style:none;margin:0}.xl li{margin:6px 0}.model{background:#fff;border-left:4px solid var(--acc);padding:8px 12px;border-radius:6px}.tg{display:inline-block;padding:1px 9px;border-radius:99px;margin:2px;font-size:13px}.tg.y{background:#dcfce7}.tg.n{background:#fee2e2}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--ln)}
+#ld{position:fixed;top:0;left:0;right:0;background:#f5b301;text-align:center;font-size:13px;padding:3px;z-index:9}[hidden]{display:none!important}
+</style>
+<div id=ld hidden>Working...</div>
+<header><h1>AdaptEd<small>learn - explain - remember</small></h1><nav id=nav hidden><a data-v=goal>Path</a><a data-v=learn>Lesson</a><a data-v=explain>Test</a><a data-v=dash>Review</a><a id=out>Log out</a></nav></header>
+<main><div id=walk class=card hidden><h2>Welcome to AdaptEd</h2><p>1) Pick a subject or type a goal to get an ordered path. 2) <b>Learn</b> each concept from its short lesson. 3) <b>Test</b> yourself by explaining it from memory; you get a score with matched and missing key terms. 4) Mastered concepts come back in <b>Review</b> at intervals that adapt to your scores.</p><button id=wx>Got it</button></div><div id=m></div></main>
+<script>
+const $=s=>document.querySelector(s),e=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function api(p,b){$('#ld').hidden=false;try{const r=await fetch('/api/'+p,{method:b?'POST':'GET',headers:{'Content-Type':'application/json'},body:b?JSON.stringify(b):undefined});const j=await r.json();if(!r.ok)throw Object.assign(new Error(j.error),{code:r.status});return j}finally{$('#ld').hidden=true}}
+let cur=null;const M=$('#m');
+const bar=(l,v)=>`<p style="margin:8px 0 2px">${l}: <b>${Math.round(v*100)}%</b></p><div class=bar><i style="width:${v*100}%"></i></div>`;
+const pick='<div class=card><p>Pick a concept from the <b>Path</b> tab first.</p></div>';
+async function go(v){document.querySelectorAll('nav a[data-v]').forEach(a=>a.classList.toggle('on',a.dataset.v==v));try{await views[v]()}catch(x){if(x.code==401)login();else M.innerHTML=`<div class=card><p class=err>${e(x.message)}</p></div>`}}
+function login(msg=''){$('#nav').hidden=true;M.innerHTML=`<div class=card style="max-width:420px;margin:40px auto"><h2>Log in or create an account</h2><p class=err>${msg}</p><input id=u placeholder=Username autocomplete=username><input id=p type=password placeholder=Password autocomplete=current-password><p><button id=li>Log in</button> <button class=s id=re>Register</button></p></div>`;
+ for(const[i,m]of[['li','login'],['re','register']])$('#'+i).onclick=async()=>{try{await api('auth/'+m,{name:$('#u').value,password:$('#p').value});start()}catch(x){login(e(x.message))}}}
+const views={
+ async goal(){const[p,subs]=await Promise.all([api('path'),api('subjects')]);const d=p.path.filter(c=>c.status=='mastered').length;
+  const steps=p.path.map((c,i)=>`<div class="step ${c.current?'cur ':''}${c.status}${c.status=='locked'?' lock':''}"><span class=n>${c.status=='mastered'?'&#10003;':i+1}</span><span class=t>${e(c.name)} ${c.review?'<span class="chip rv">needs review</span>':''}${c.current?' <span class=chip>you are here</span>':''}</span><span class="chip ${c.status}">${c.status}</span>${c.status!='locked'?`<button class=s data-a=l data-c="${c.id}">Learn</button>`:''}${c.studied&&c.status!='locked'?`<button data-a=t data-c="${c.id}">Test me</button>`:''}</div>`).join('');
+  M.innerHTML=`<div class=card><h2>What do you want to learn?</h2><div class=f><input id=g placeholder="e.g. I want to learn the basics of Python" value="${e(p.goal||'')}"><button id=gb>${p.goal?'Regenerate':'Create path'}</button></div><p id=ge class=err></p><p class=mut>Or start with a subject:</p><div class=grid>${subs.map(s=>`<button class=sub data-s="${e(s.name)}"><b>${e(s.name)}</b><br><small class=mut>${s.count} concepts</small></button>`).join('')}</div></div>
+  ${p.path.length?`<div class=card><h2>Your path: ${e(p.subject)}</h2><div class=pb><i style="width:${d/p.path.length*100}%"></i></div><p class=mut>${d} of ${p.path.length} concepts mastered</p>${steps}</div>`:''}`;
+  $('#gb').onclick=async()=>{try{await api('goal',{goal:$('#g').value});go('goal')}catch(x){$('#ge').textContent=x.message}};
+  document.querySelectorAll('.sub').forEach(b=>b.onclick=()=>{$('#g').value='I want to learn '+b.dataset.s;$('#gb').click()});
+  document.querySelectorAll('.step button').forEach(b=>b.onclick=()=>{cur=b.dataset.c;go(b.dataset.a=='l'?'learn':'explain')})},
+ async learn(){if(!cur){M.innerHTML=pick;return}const c=await api('concept/'+cur);
+  M.innerHTML=`<div class=card><span class=chip>Lesson - ${e(c.subject)}</span><h2 style="margin-top:8px">${e(c.name)}</h2><p class=lesson>${e(c.lesson)}</p><p class=mut>Read it carefully. In the test the lesson is hidden and you explain it from memory, in your own words.</p><button id=rd>I've studied this - test me</button></div>`;
+  $('#rd').onclick=async()=>{await api('studied',{concept:cur});go('explain')}},
+ async explain(){if(!cur){M.innerHTML=pick;return}const c=await api('concept/'+cur);
+  M.innerHTML=`<div class=card><span class=chip>Test</span><h2 style="margin-top:8px">${e(c.name)}</h2><p>${e(c.hint)}</p><textarea id=t rows=6 placeholder="Type your explanation..."></textarea><p><button id=sb>Submit explanation</button> <button class=s id=bl>Back to lesson</button></p><div id=r></div></div>`;
+  $('#bl').onclick=()=>go('learn');
+  $('#sb').onclick=async()=>{try{const r=await api('explain',{concept:cur,text:$('#t').value});const tg=(a,k)=>a.map(x=>`<span class="tg ${k}">${e(x)}</span>`).join('')||'<span class=mut>none</span>';
+   const x=r.explanation,li=(a,k)=>a.map(g=>`<li><span class="tg ${k}">${e(g.term)}</span>${g.from_lesson?` <span class=mut>${e(g.from_lesson)}</span>`:''}</li>`).join('');
+   $('#r').innerHTML=`<div class="res ${r.passed?'ok':'no'}"><div class=big>${Math.round(r.score*100)}%</div><b>${e(x.headline)}</b><p>${e(x.summary)}</p>${bar('Wording match with the lesson',Math.min(1,r.similarity/.5))}${bar('Key-term coverage',r.coverage)}
+    ${x.strengths.length?`<h3>What you got right</h3><ul class=xl>${li(x.strengths,'y')}</ul>`:''}
+    ${x.gaps.length?`<h3>What was missing - and why it matters</h3><ul class=xl>${li(x.gaps,'n')}</ul>`:''}
+    ${r.tutor_note?`<h3>Tutor note <small class=mut>(AI, assistive - score is computed locally)</small></h3><p>${e(r.tutor_note)}</p>`:''}
+    <h3>A strong answer looks like this</h3><p class=model>${e(x.model_answer)}</p>
+    <p><b>Next step:</b> ${e(x.next_step)}</p><p class=mut>Next review: ${r.next_review}</p>${r.passed?'':'<button class=s id=rl>Re-read the lesson</button>'}</div>`;if($('#rl'))$('#rl').onclick=()=>go('learn')}catch(x){$('#r').innerHTML=`<p class=err>${e(x.message)}</p>`}}},
+ async dash(){const d=await api('dashboard');const L=(a,b)=>a.map(c=>`<div class=row><span>${e(c.name)} <small class=mut>due ${c.due}</small></span><span>${b?`<button class=s data-c="${c.id}" data-a=x>Test again</button> <button data-c="${c.id}" data-a=r>Mark reviewed</button>`:''}</span></div>`).join('')||'<p class=mut>Nothing here.</p>';
+  M.innerHTML=`<div class=card><h2>Due for review today</h2>${L(d.due,1)}</div><div class=card><h2>Upcoming</h2>${L(d.upcoming,0)}</div><p class=mut>Concepts mastered: ${d.mastered}</p>`;
+  document.querySelectorAll('#m button[data-c]').forEach(b=>b.onclick=async()=>{if(b.dataset.a=='x'){cur=b.dataset.c;go('explain')}else{await api('review',{concept:b.dataset.c});go('dash')}})}};
+function start(){$('#nav').hidden=false;if(!localStorage.walked)$('#walk').hidden=false;go('goal')}
+document.querySelectorAll('nav a[data-v]').forEach(a=>a.onclick=()=>go(a.dataset.v));
+$('#out').onclick=async()=>{await api('logout',{});login()};$('#wx').onclick=()=>{localStorage.walked=1;$('#walk').hidden=true};
+api('me').then(j=>j.name?start():login());
+</script>
